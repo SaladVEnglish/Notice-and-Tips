@@ -2,3 +2,8 @@
 cloud_file_scr = "https://www.kdocs.cn/l/colfFw2Piprw"
 refresh_interval = 60
 fetch_interval = 300
+error_display_duration = 30
+
+[font]
+custom_font_file = "ZiHunPudding.ttf"
+fallback_font = "Microsoft YaHei"
