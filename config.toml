@@ -3,13 +3,14 @@ cloud_file_scr = "https://www.kdocs.cn/l/colfFw2Piprw"
 refresh_interval = 60
 fetch_interval = 300
 error_display_duration = 30
+always_on_top = true
 
 [font]
 custom_font_file = "ZiHunPudding.ttf"
 fallback_font = "Microsoft YaHei"
 
 [colors]
-background_color = "aqua"
+background_color = "#e7f6fb"
 tip_text_color = "#333333"
 countdown_text_color = "#10aec2"
 border_color = "#10aec2"

@@ -151,7 +151,8 @@ def load_config():
             "cloud_file_scr": "https://www.kdocs.cn/l/colfFw2Piprw",
             "refresh_interval": 60,
             "fetch_interval": 300,
-            "error_display_duration": 30
+            "error_display_duration": 30,
+            "always_on_top": True
         },
         "font": {
             "custom_font_file": "FLyouzichati-Regular-2.ttf",
@@ -225,6 +226,7 @@ CLOUD_FILE_SCR = config["cloud_file_scr"]
 REFRESH_INTERVAL = config["refresh_interval"]
 FETCH_INTERVAL = config["fetch_interval"]
 ERROR_DISPLAY_DURATION = config["error_display_duration"]
+ALWAYS_ON_TOP = config["always_on_top"]
 
 # 字体配置
 CUSTOM_FONT_FILE = config["custom_font_file"]
@@ -258,7 +260,7 @@ class FloatingTipsApp:
     def __init__(self, root):
         self.root = root
         self.root.overrideredirect(True)
-        self.root.attributes("-topmost", True)
+        self.root.attributes("-topmost", ALWAYS_ON_TOP)
         self.root.configure(bg=BACKGROUND_COLOR)  # 使用配置的背景色
         self.root.attributes("-alpha", 1.0)  # 不透明
         # 使用Windows API实现透明效果（延迟执行，确保窗口已创建）
