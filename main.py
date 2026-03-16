@@ -236,11 +236,13 @@ class FloatingTipsApp:
         self.root = root
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
-        self.root.configure(bg="white")  # 白色背景
-        self.root.attributes("-alpha", 0.7)  # 默认半透明
+        self.root.configure(bg="white")  # 先设置白色背景
+        self.root.attributes("-alpha", 1.0)  # 不透明
+        # 使用Windows API实现透明效果（延迟执行，确保窗口已创建）
+        self.root.after(100, self._set_window_transparent)
 
         # 初始位置和大小
-        self.root.geometry("460x80+500+100")
+        self.root.geometry("500x60+500+100")
 
         # Data for carousel and error management (initialize first)
         self.tips_lock = threading.Lock()
@@ -308,28 +310,66 @@ class FloatingTipsApp:
         self.running = True
         self.fetch_interval_seconds = FETCH_INTERVAL  # selenium fetch interval (默认300秒)
 
-        # UI 标签（两行：提示内容 + 倒计时）
-        self.tip_label = tk.Label(
+        # 创建白色圆角矩形容器（外层白色背景）
+        self.container = tk.Frame(
             root,
+            bg="white",
+            bd=0,
+            relief="flat"
+        )
+        self.container.pack(fill="both", expand=True, padx=8, pady=8)
+        
+        # 创建Canvas用于绘制细线圆角边框
+        self.border_canvas = tk.Canvas(
+            self.container,
+            bg="white",
+            bd=0,
+            highlightthickness=0
+        )
+        self.border_canvas.pack(fill="both", expand=True)
+        
+        # 在Canvas上创建内容框架（透明背景，不遮住边框）
+        self.content_frame = tk.Frame(
+            self.border_canvas,
+            bg="white",
+            bd=0
+        )
+        
+        # 创建水平布局的标签容器（移除左右padding，让文字贴边）
+        self.labels_frame = tk.Frame(
+            self.content_frame,
+            bg="white",
+            bd=0
+        )
+        self.labels_frame.pack(fill="both", expand=True, padx=0, pady=0)
+        
+        # 左侧Notice显示区（移除背景色，文字靠最左）
+        self.tip_label = tk.Label(
+            self.labels_frame,
             text="系统启动中，正在初始化浏览器...",
-            fg="#10aec2",
+            fg="#333333",
             bg="white",
             font=(font_family, 10, "bold"),
-            wraplength=440,
+            wraplength=380,
             justify="left",
+            anchor="w"
         )
-        self.tip_label.pack(side="top", expand=True, fill="both", padx=10, pady=(8, 0))
-
+        self.tip_label.pack(side="left", fill="both", expand=True, padx=8, pady=6)
+        
+        # 右侧倒计时（移除背景色，文字靠最右）
         self.countdown_label = tk.Label(
-            root,
-            text="下次更新: -- 秒",
+            self.labels_frame,
+            text="--",
             fg="#10aec2",
             bg="white",
             font=(font_family, 9),
             anchor="e",
-            justify="right",
+            justify="right"
         )
-        self.countdown_label.pack(side="bottom", fill="x", padx=10, pady=(0, 8))
+        self.countdown_label.pack(side="right", fill="y", padx=8, pady=6)
+        
+        # 延迟绘制圆角边框
+        self.root.after(150, self._draw_rounded_border)
 
         # 鼠标拖动绑定
         self.tip_label.bind("<Button-1>", self.start_move)
@@ -338,6 +378,18 @@ class FloatingTipsApp:
         self.countdown_label.bind("<Button-1>", self.start_move)
         self.countdown_label.bind("<B1-Motion>", self.do_move)
         self.countdown_label.bind("<ButtonRelease-1>", self.stop_move)
+        self.container.bind("<Button-1>", self.start_move)
+        self.container.bind("<B1-Motion>", self.do_move)
+        self.container.bind("<ButtonRelease-1>", self.stop_move)
+        self.border_canvas.bind("<Button-1>", self.start_move)
+        self.border_canvas.bind("<B1-Motion>", self.do_move)
+        self.border_canvas.bind("<ButtonRelease-1>", self.stop_move)
+        self.content_frame.bind("<Button-1>", self.start_move)
+        self.content_frame.bind("<B1-Motion>", self.do_move)
+        self.content_frame.bind("<ButtonRelease-1>", self.stop_move)
+        self.labels_frame.bind("<Button-1>", self.start_move)
+        self.labels_frame.bind("<B1-Motion>", self.do_move)
+        self.labels_frame.bind("<ButtonRelease-1>", self.stop_move)
 
         # 右键退出
         self.root.bind("<Button-3>", self.on_closing)
@@ -367,7 +419,166 @@ class FloatingTipsApp:
         self.root.geometry(f"+{x}+{y}")
 
     def stop_move(self, event):
-        self.root.attributes("-alpha", 0.7)  # 拖动结束后恢复半透明
+        self.root.attributes("-alpha", 1.0)  # 拖动结束后保持不透明
+
+    def _draw_rounded_border(self):
+        """在Canvas上绘制细线圆角边框"""
+        try:
+            # 获取Canvas尺寸
+            self.border_canvas.update_idletasks()
+            width = self.border_canvas.winfo_width()
+            height = self.border_canvas.winfo_height()
+            
+            if width <= 1 or height <= 1:
+                width = 480
+                height = 44
+            
+            # 清除之前的绘制
+            self.border_canvas.delete("all")
+            
+            # 将内容框架放置在Canvas中央
+            self.content_frame.place(relx=0.5, rely=0.5, anchor="center")
+            
+            # 绘制细线圆角矩形边框
+            radius = 12  # 圆角半径
+            line_width = 1  # 线宽（细线）
+            padding = line_width + 1
+            
+            # 绘制圆角矩形路径
+            # 左上角圆弧
+            self.border_canvas.create_arc(
+                padding, padding, 
+                padding + radius * 2, padding + radius * 2,
+                start=90, extent=90, 
+                style="arc", outline="#10aec2", width=line_width
+            )
+            # 右上角圆弧
+            self.border_canvas.create_arc(
+                width - padding - radius * 2, padding,
+                width - padding, padding + radius * 2,
+                start=0, extent=90,
+                style="arc", outline="#10aec2", width=line_width
+            )
+            # 右下角圆弧
+            self.border_canvas.create_arc(
+                width - padding - radius * 2, height - padding - radius * 2,
+                width - padding, height - padding,
+                start=270, extent=90,
+                style="arc", outline="#10aec2", width=line_width
+            )
+            # 左下角圆弧
+            self.border_canvas.create_arc(
+                padding, height - padding - radius * 2,
+                padding + radius * 2, height - padding,
+                start=180, extent=90,
+                style="arc", outline="#10aec2", width=line_width
+            )
+            
+            # 绘制四条直线
+            # 上边
+            self.border_canvas.create_line(
+                padding + radius, padding,
+                width - padding - radius, padding,
+                fill="#10aec2", width=line_width
+            )
+            # 下边
+            self.border_canvas.create_line(
+                padding + radius, height - padding,
+                width - padding - radius, height - padding,
+                fill="#10aec2", width=line_width
+            )
+            # 左边
+            self.border_canvas.create_line(
+                padding, padding + radius,
+                padding, height - padding - radius,
+                fill="#10aec2", width=line_width
+            )
+            # 右边
+            self.border_canvas.create_line(
+                width - padding, padding + radius,
+                width - padding, height - padding - radius,
+                fill="#10aec2", width=line_width
+            )
+            
+        except Exception as e:
+            print(f"绘制圆角边框时出错: {e}")
+
+    def _set_window_transparent(self):
+        """使用Windows API设置窗口圆角效果"""
+        try:
+            from ctypes import wintypes
+            
+            # 获取窗口句柄 - 使用多种方式尝试
+            hwnd = None
+            
+            # 方式1: 使用winfo_id()
+            try:
+                window_id = self.root.winfo_id()
+                if window_id:
+                    hwnd = ctypes.windll.user32.GetParent(window_id)
+                    if not hwnd:
+                        hwnd = window_id
+            except:
+                pass
+            
+            # 方式2: 使用FindWindow查找
+            if not hwnd:
+                try:
+                    class_name = self.root.wm_class()[0] if self.root.wm_class() else None
+                    window_title = self.root.wm_title()
+                    if class_name:
+                        hwnd = ctypes.windll.user32.FindWindowW(class_name, window_title)
+                except:
+                    pass
+            
+            if not hwnd:
+                print("无法获取窗口句柄")
+                return
+            
+            # 获取窗口实际大小
+            self.root.update_idletasks()
+            width = self.root.winfo_width()
+            height = self.root.winfo_height()
+            
+            if width <= 1 or height <= 1:
+                # 如果窗口还未渲染，使用默认尺寸
+                width = 500
+                height = 60
+            
+            # 确保窗口有有效的大小
+            if width < 100:
+                width = 500
+            if height < 30:
+                height = 60
+            
+            radius = 20  # 圆角半径
+            
+            # 使用CreateRoundRectRgn创建圆角矩形区域
+            gdi32 = ctypes.windll.gdi32
+            CreateRoundRectRgn = gdi32.CreateRoundRectRgn
+            CreateRoundRectRgn.argtypes = [wintypes.INT, wintypes.INT, wintypes.INT, wintypes.INT, wintypes.INT, wintypes.INT]
+            CreateRoundRectRgn.restype = wintypes.HRGN
+            
+            hRgn = CreateRoundRectRgn(0, 0, width, height, radius * 2, radius * 2)
+            
+            if hRgn:
+                # 设置窗口区域
+                SetWindowRgn = ctypes.windll.user32.SetWindowRgn
+                SetWindowRgn.argtypes = [wintypes.HWND, wintypes.HRGN, wintypes.BOOL]
+                SetWindowRgn.restype = wintypes.INT
+                
+                result = SetWindowRgn(hwnd, hRgn, True)
+                if result:
+                    print(f"圆角设置成功: {width}x{height}, radius={radius}")
+                else:
+                    print("SetWindowRgn调用失败")
+            else:
+                print("CreateRoundRectRgn创建区域失败")
+            
+        except Exception as e:
+            print(f"设置窗口圆角效果时出错: {e}")
+            import traceback
+            traceback.print_exc()
 
     # ---------------------
     # Selenium fetch thread
@@ -546,9 +757,9 @@ class FloatingTipsApp:
         # Check if we should display an error message
         if error_message and now < error_display_until:
             # Display error message
-            display_text = f"❌ {error_message}"
+            display_text = error_message
             remaining_error_time = max(0, int(error_display_until - now))
-            countdown_text = f"错误信息将在 {remaining_error_time} 秒后清除"
+            countdown_text = f"{remaining_error_time}s"
         elif tips_copy:
             # Normal tip display logic
             # Ensure current_index is within range
@@ -567,13 +778,13 @@ class FloatingTipsApp:
 
             remaining = max(0, int(self.rotation_seconds - elapsed))
 
-            # Build display text: headline + tip
-            display_text = f"📢 最新公告 ({self.current_index + 1}/{len(tips_copy)}):\n{tips_copy[self.current_index]}"
-            countdown_text = f"下次更新: {remaining} 秒"
+            # Build display text: just the tip content (single line)
+            display_text = tips_copy[self.current_index]
+            countdown_text = f"{remaining}s"
         else:
             # No tips available: show placeholder and keep a short refresh cadence
             display_text = "未检测到公告内容或标记，正在等待抓取..."
-            countdown_text = "下次更新: -- 秒"
+            countdown_text = "--"
 
         # Update labels (only if text changed to reduce flicker)
         # Use .after(0, ...) is not needed because we are already on main thread, but safe to ensure thread-safety.
