@@ -7,3 +7,9 @@ error_display_duration = 30
 [font]
 custom_font_file = "ZiHunPudding.ttf"
 fallback_font = "Microsoft YaHei"
+
+[colors]
+background_color = "aqua"
+tip_text_color = "#333333"
+countdown_text_color = "#10aec2"
+border_color = "#10aec2"

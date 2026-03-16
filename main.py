@@ -53,6 +53,8 @@ def load_custom_font(font_path):
         return None
     except Exception:
         return None
+    
+#def get_all
 
 def extract_font_name_from_ttf(ttf_path):
     """
@@ -154,6 +156,12 @@ def load_config():
         "font": {
             "custom_font_file": "FLyouzichati-Regular-2.ttf",
             "fallback_font": "Microsoft YaHei"
+        },
+        "colors": {
+            "background_color": "white",
+            "tip_text_color": "#333333",
+            "countdown_text_color": "#10aec2",
+            "border_color": "#10aec2"
         }
     }
     
@@ -181,6 +189,13 @@ def load_config():
             if key not in config["font"]:
                 config["font"][key] = value
         
+        # 确保配置项存在 - 处理colors部分
+        if "colors" not in config:
+            config["colors"] = {}
+        for key, value in default_config["colors"].items():
+            if key not in config["colors"]:
+                config["colors"][key] = value
+        
         # 保存更新后的配置
         with open(config_file, "w", encoding="utf-8") as f:
             toml.dump(config, f)
@@ -189,6 +204,7 @@ def load_config():
         merged_config = {}
         merged_config.update(config["config"])
         merged_config.update(config["font"])
+        merged_config.update(config["colors"])
         return merged_config
         
     except Exception:
@@ -200,6 +216,7 @@ def load_config():
         merged_config = {}
         merged_config.update(default_config["config"])
         merged_config.update(default_config["font"])
+        merged_config.update(default_config["colors"])
         return merged_config
 
 # 加载配置
@@ -212,6 +229,12 @@ ERROR_DISPLAY_DURATION = config["error_display_duration"]
 # 字体配置
 CUSTOM_FONT_FILE = config["custom_font_file"]
 FALLBACK_FONT = config["fallback_font"]
+
+# 颜色配置
+BACKGROUND_COLOR = config["background_color"]
+TIP_TEXT_COLOR = config["tip_text_color"]
+COUNTDOWN_TEXT_COLOR = config["countdown_text_color"]
+BORDER_COLOR = config["border_color"]
 
 def slow_scroll(driver, step=500):
     """
@@ -236,7 +259,7 @@ class FloatingTipsApp:
         self.root = root
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
-        self.root.configure(bg="white")  # 先设置白色背景
+        self.root.configure(bg=BACKGROUND_COLOR)  # 使用配置的背景色
         self.root.attributes("-alpha", 1.0)  # 不透明
         # 使用Windows API实现透明效果（延迟执行，确保窗口已创建）
         self.root.after(100, self._set_window_transparent)
@@ -310,10 +333,10 @@ class FloatingTipsApp:
         self.running = True
         self.fetch_interval_seconds = FETCH_INTERVAL  # selenium fetch interval (默认300秒)
 
-        # 创建白色圆角矩形容器（外层白色背景）
+        # 创建圆角矩形容器（外层背景）
         self.container = tk.Frame(
             root,
-            bg="white",
+            bg=BACKGROUND_COLOR,
             bd=0,
             relief="flat"
         )
@@ -322,7 +345,7 @@ class FloatingTipsApp:
         # 创建Canvas用于绘制细线圆角边框
         self.border_canvas = tk.Canvas(
             self.container,
-            bg="white",
+            bg=BACKGROUND_COLOR,
             bd=0,
             highlightthickness=0
         )
@@ -331,14 +354,14 @@ class FloatingTipsApp:
         # 在Canvas上创建内容框架（透明背景，不遮住边框）
         self.content_frame = tk.Frame(
             self.border_canvas,
-            bg="white",
+            bg=BACKGROUND_COLOR,
             bd=0
         )
         
         # 创建水平布局的标签容器（移除左右padding，让文字贴边）
         self.labels_frame = tk.Frame(
             self.content_frame,
-            bg="white",
+            bg=BACKGROUND_COLOR,
             bd=0
         )
         self.labels_frame.pack(fill="both", expand=True, padx=0, pady=0)
@@ -347,8 +370,8 @@ class FloatingTipsApp:
         self.tip_label = tk.Label(
             self.labels_frame,
             text="系统启动中，正在初始化浏览器...",
-            fg="#333333",
-            bg="white",
+            fg=TIP_TEXT_COLOR,
+            bg=BACKGROUND_COLOR,
             font=(font_family, 10, "bold"),
             wraplength=380,
             justify="left",
@@ -360,8 +383,8 @@ class FloatingTipsApp:
         self.countdown_label = tk.Label(
             self.labels_frame,
             text="--",
-            fg="#10aec2",
-            bg="white",
+            fg=COUNTDOWN_TEXT_COLOR,
+            bg=BACKGROUND_COLOR,
             font=(font_family, 9),
             anchor="e",
             justify="right"
@@ -450,28 +473,28 @@ class FloatingTipsApp:
                 padding, padding, 
                 padding + radius * 2, padding + radius * 2,
                 start=90, extent=90, 
-                style="arc", outline="#10aec2", width=line_width
+                style="arc", outline=BORDER_COLOR, width=line_width
             )
             # 右上角圆弧
             self.border_canvas.create_arc(
                 width - padding - radius * 2, padding,
                 width - padding, padding + radius * 2,
                 start=0, extent=90,
-                style="arc", outline="#10aec2", width=line_width
+                style="arc", outline=BORDER_COLOR, width=line_width
             )
             # 右下角圆弧
             self.border_canvas.create_arc(
                 width - padding - radius * 2, height - padding - radius * 2,
                 width - padding, height - padding,
                 start=270, extent=90,
-                style="arc", outline="#10aec2", width=line_width
+                style="arc", outline=BORDER_COLOR, width=line_width
             )
             # 左下角圆弧
             self.border_canvas.create_arc(
                 padding, height - padding - radius * 2,
                 padding + radius * 2, height - padding,
                 start=180, extent=90,
-                style="arc", outline="#10aec2", width=line_width
+                style="arc", outline=BORDER_COLOR, width=line_width
             )
             
             # 绘制四条直线
@@ -479,25 +502,25 @@ class FloatingTipsApp:
             self.border_canvas.create_line(
                 padding + radius, padding,
                 width - padding - radius, padding,
-                fill="#10aec2", width=line_width
+                fill=BORDER_COLOR, width=line_width
             )
             # 下边
             self.border_canvas.create_line(
                 padding + radius, height - padding,
                 width - padding - radius, height - padding,
-                fill="#10aec2", width=line_width
+                fill=BORDER_COLOR, width=line_width
             )
             # 左边
             self.border_canvas.create_line(
                 padding, padding + radius,
                 padding, height - padding - radius,
-                fill="#10aec2", width=line_width
+                fill=BORDER_COLOR, width=line_width
             )
             # 右边
             self.border_canvas.create_line(
                 width - padding, padding + radius,
                 width - padding, height - padding - radius,
-                fill="#10aec2", width=line_width
+                fill=BORDER_COLOR, width=line_width
             )
             
         except Exception as e:
