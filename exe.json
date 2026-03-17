@@ -54,8 +54,8 @@
    "value": false
   },
   {
-   "optionDest": "datas",
-   "value": "D:/Notice-and-Tips/edge;edge/"
+   "optionDest": "hiddenimports",
+   "value": "selenium.webdriver.edge.webdriver"
   }
  ],
  "nonPyinstallerOptions": {
