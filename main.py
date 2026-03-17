@@ -12,6 +12,7 @@ Changes:
 
 import ctypes
 import os
+import random
 import re
 import struct
 import threading
@@ -697,7 +698,7 @@ class FloatingTipsApp:
             traceback.print_exc()
 
     def _load_tips_from_json(self):
-        """从tips.json文件加载tips并转换为列表"""
+        """从tips.json文件加载tips并转换为列表，随机选择第一条"""
         try:
             json_path = os.path.join(os.path.dirname(__file__), "tips.json")
             if os.path.exists(json_path):
@@ -705,6 +706,9 @@ class FloatingTipsApp:
                     data = json.load(f)
                     with self.tips_json_lock:
                         self.tips_json = parse_dict_to_list(data)
+                        # 随机选择第一条tip
+                        if self.tips_json:
+                            self.current_tip_json_index = random.randint(0, len(self.tips_json) - 1)
         except Exception as e:
             print(f"加载tips.json时出错: {e}")
             with self.tips_json_lock:
@@ -942,12 +946,12 @@ class FloatingTipsApp:
                 self.tip_json_shown_at = now
 
             elapsed_json = now - self.tip_json_shown_at
-            # If elapsed exceeds rotation_seconds, advance index
+            # If elapsed exceeds rotation_seconds, randomly pick a new tip
             if elapsed_json >= self.tip_json_rotation_seconds:
-                advance_by_json = int(elapsed_json // self.tip_json_rotation_seconds)
-                self.current_tip_json_index = (self.current_tip_json_index + advance_by_json) % len(tips_json_copy)
+                # Randomly select a tip from the list
+                self.current_tip_json_index = random.randint(0, len(tips_json_copy) - 1)
                 # Recompute shown_at to align with the rotation period
-                self.tip_json_shown_at += advance_by_json * self.tip_json_rotation_seconds
+                self.tip_json_shown_at = now
 
             # Build display text: Tips: followed by the tip content
             tip_json_text = f"Tips: {tips_json_copy[self.current_tip_json_index]}"
