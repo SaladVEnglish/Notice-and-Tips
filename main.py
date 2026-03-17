@@ -56,6 +56,8 @@ def load_custom_font(font_path):
 
 
 def parse_dict_to_list(d) -> list:
+    if isinstance(d, str):
+        return [d]
     if isinstance(d, list):
         return d
     if isinstance(d, dict):
