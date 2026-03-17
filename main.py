@@ -16,6 +16,7 @@ import re
 import struct
 import threading
 import time
+from datetime import datetime
 import tkinter as tk
 from ctypes import wintypes
 from tkinter import font
