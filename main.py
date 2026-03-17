@@ -294,7 +294,7 @@ class FloatingTipsApp:
         self.root.after(100, self._set_window_transparent)
 
         # 初始位置和大小
-        self.root.geometry("500x60+500+100")
+        self.root.geometry("500x85+500+100")
 
         # Data for carousel and error management (initialize first)
         self.tips_lock = threading.Lock()
@@ -315,7 +315,13 @@ class FloatingTipsApp:
         self.fetch_interval_seconds = (
             FETCH_INTERVAL  # selenium fetch interval (默认300秒)
         )
-
+        
+        # Tips from tips.json
+        self.tips_json_lock = threading.Lock()
+        self.tips_json: List[str] = []  # list of tips from json
+        self.current_tip_json_index = 0
+        self.tip_json_shown_at = time.time()  # timestamp when current tip started showing
+        self.tip_json_rotation_seconds = FETCH_INTERVAL  # 轮播间隔与fetch time相同
         # 加载自定义字体
         custom_font_path = os.path.join(os.path.dirname(__file__), CUSTOM_FONT_FILE)
         font_family = FALLBACK_FONT
@@ -375,10 +381,26 @@ class FloatingTipsApp:
         self.fetch_interval_seconds = (
             FETCH_INTERVAL  # selenium fetch interval (默认300秒)
         )
+        
+        # 加载tips.json
+        self._load_tips_from_json()
+
+        # 添加tips.json轮播显示标签（放在蓝色圆角框上方）
+        self.tips_json_label = tk.Label(
+            self.root,
+            text="Tips: 加载中...",
+            fg=TIP_TEXT_COLOR,
+            bg=BACKGROUND_COLOR,
+            font=(font_family, 9),
+            wraplength=480,
+            justify="left",
+            anchor="w",
+        )
+        self.tips_json_label.pack(fill="x", padx=16, pady=(4, 2))
 
         # 创建圆角矩形容器（外层背景）
         self.container = tk.Frame(root, bg=BACKGROUND_COLOR, bd=0, relief="flat")
-        self.container.pack(fill="both", expand=True, padx=8, pady=8)
+        self.container.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         # 创建Canvas用于绘制细线圆角边框
         self.border_canvas = tk.Canvas(
@@ -393,7 +415,7 @@ class FloatingTipsApp:
         self.labels_frame = tk.Frame(self.content_frame, bg=BACKGROUND_COLOR, bd=0)
         self.labels_frame.pack(fill="both", expand=True, padx=0, pady=0)
 
-        # 左侧Notice显示区（移除背景色，文字靠最左）
+        # 左侧Notice显示区（减小高度）
         self.tip_label = tk.Label(
             self.labels_frame,
             text="系统启动中，正在初始化浏览器...",
@@ -404,9 +426,9 @@ class FloatingTipsApp:
             justify="left",
             anchor="w",
         )
-        self.tip_label.pack(side="left", fill="both", expand=True, padx=8, pady=6)
+        self.tip_label.pack(side="left", fill="both", expand=True, padx=8, pady=4)
 
-        # 右侧倒计时（移除背景色，文字靠最右）
+        # 右侧倒计时（减小高度）
         self.countdown_label = tk.Label(
             self.labels_frame,
             text="--",
@@ -416,7 +438,7 @@ class FloatingTipsApp:
             anchor="e",
             justify="right",
         )
-        self.countdown_label.pack(side="right", fill="y", padx=8, pady=6)
+        self.countdown_label.pack(side="right", fill="y", padx=8, pady=4)
 
         # 延迟绘制圆角边框
         self.root.after(150, self._draw_rounded_border)
@@ -481,7 +503,7 @@ class FloatingTipsApp:
 
             if width <= 1 or height <= 1:
                 width = 480
-                height = 44
+                height = 32
 
             # 清除之前的绘制
             self.border_canvas.delete("all")
@@ -673,6 +695,20 @@ class FloatingTipsApp:
             import traceback
 
             traceback.print_exc()
+
+    def _load_tips_from_json(self):
+        """从tips.json文件加载tips并转换为列表"""
+        try:
+            json_path = os.path.join(os.path.dirname(__file__), "tips.json")
+            if os.path.exists(json_path):
+                with open(json_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    with self.tips_json_lock:
+                        self.tips_json = parse_dict_to_list(data)
+        except Exception as e:
+            print(f"加载tips.json时出错: {e}")
+            with self.tips_json_lock:
+                self.tips_json = []
 
     # ---------------------
     # Selenium fetch thread
@@ -894,6 +930,31 @@ class FloatingTipsApp:
         # Use .after(0, ...) is not needed because we are already on main thread, but safe to ensure thread-safety.
         self.tip_label.config(text=display_text)
         self.countdown_label.config(text=countdown_text)
+        
+        # Update tips.json carousel
+        with self.tips_json_lock:
+            tips_json_copy = list(self.tips_json)
+        
+        if tips_json_copy:
+            # Ensure current_tip_json_index is within range
+            if self.current_tip_json_index >= len(tips_json_copy):
+                self.current_tip_json_index = 0
+                self.tip_json_shown_at = now
+
+            elapsed_json = now - self.tip_json_shown_at
+            # If elapsed exceeds rotation_seconds, advance index
+            if elapsed_json >= self.tip_json_rotation_seconds:
+                advance_by_json = int(elapsed_json // self.tip_json_rotation_seconds)
+                self.current_tip_json_index = (self.current_tip_json_index + advance_by_json) % len(tips_json_copy)
+                # Recompute shown_at to align with the rotation period
+                self.tip_json_shown_at += advance_by_json * self.tip_json_rotation_seconds
+
+            # Build display text: Tips: followed by the tip content
+            tip_json_text = f"Tips: {tips_json_copy[self.current_tip_json_index]}"
+        else:
+            tip_json_text = "Tips: 加载中..."
+        
+        self.tips_json_label.config(text=tip_json_text)
 
     # ---------------------
     # 关闭与退出
